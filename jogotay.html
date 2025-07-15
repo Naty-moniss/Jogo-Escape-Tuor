@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Taylor Swift: Escape Tour</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #1a0f2a;
+            font-family: 'Arial', sans-serif;
+            overflow: hidden;
+        }
+        
+        #gameContainer {
+            position: relative;
+            width: 600px;
+            height: 400px;
+        }
+        
+        #gameCanvas {
+            border: 2px solid #8a63d2;
+            box-shadow: 0 0 30px rgba(138, 99, 210, 0.5);
+            background-color: #0a0515;
+        }
+        
+        #startScreen, #gameOverScreen, #quizScreen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background-color: rgba(26, 15, 42, 0.95);
+            color: white;
+            text-align: center;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        
+        #gameOverScreen, #quizScreen {
+            display: none;
+        }
+        
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 20px;
+            color: #d8a1f8;
+            text-shadow: 0 0 10px rgba(216, 161, 248, 0.7);
+        }
+        
+        button {
+            padding: 12px 30px;
+            font-size: 1.2rem;
+            background: linear-gradient(to bottom, #d8a1f8, #8a63d2);
+            border: none;
+            border-radius: 25px;
+            color: white;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-top: 20px;
+            font-weight: bold;
+        }
+        
+        button:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 20px rgba(216, 161, 248, 0.7);
+        }
+        
+        .quiz-option {
+            display: block;
+            width: 80%;
+            margin: 10px auto;
+            padding: 12px;
+            background-color: rgba(138, 99, 210, 0.3);
+            border: 1px solid #d8a1f8;
+            border-radius: 25px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .quiz-option:hover {
+            background-color: rgba(216, 161, 248, 0.4);
+        }
+        
+        #scoreDisplay, #livesDisplay {
+            position: absolute;
+            color: white;
+            font-size: 1.2rem;
+            font-weight: bold;
+        }
+        
+        #scoreDisplay {
+            top: 10px;
+            left: 10px;
+        }
+        
+        #livesDisplay {
+            top: 10px;
+            right: 10px;
+        }
+        
+        .life {
+            display: inline-block;
+            width: 22px;
+            height: 22px;
+            background-color: #ff3366;
+            margin-left: 8px;
+            clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
+            transform: rotate(45deg);
+        }
+        
+        #quizQuestion {
+            font-size: 1.4rem;
+            margin-bottom: 30px;
+        }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <canvas id="gameCanvas" width="600" height="400"></canvas>
+        <div id="scoreDisplay">Eras: 0</div>
+        <div id="livesDisplay">Loves: <span id="lifeIcons"></span></div>
+        
+        <div id="startScreen">
+            <h1>TAYLOR SWIFT: ESCAPE TOUR</h1>
+            <p>Desvie dos paparazzi! Se for pego, responda uma pergunta sobre Taylor para continuar!</p>
+            <button id="startButton">Begin Tour</button>
+        </div>
+        
+        <div id="quizScreen">
+            <h1>TAYLOR QUIZ!</h1>
+            <p id="quizQuestion">Pergunta carregando...</p>
+            <div id="quizOptions"></div>
+        </div>
+        
+        <div id="gameOverScreen">
+            <h1>TOUR ENDED</h1>
+            <p id="finalScore">Eras completadas: 0</p>
+            <button id="restartButton">Start Again</button>
+        </div>
+    </div>
+
+    <script>
+        // Elementos do DOM
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const startScreen = document.getElementById('startScreen');
+        const gameOverScreen = document.getElementById('gameOverScreen');
+        const quizScreen = document.getElementById('quizScreen');
+        const startButton = document.getElementById('startButton');
+        const restartButton = document.getElementById('restartButton');
+        const scoreDisplay = document.getElementById('scoreDisplay');
+        const livesDisplay = document.getElementById('livesDisplay');
+        const lifeIcons = document.getElementById('lifeIcons');
+        const finalScore = document.getElementById('finalScore');
+        const quizQuestion = document.getElementById('quizQuestion');
+        const quizOptions = document.getElementById('quizOptions');
+        
+        // Variáveis do jogo
+        let gameRunning = false;
+        let score = 0;
+        let lives = 3;
+        let animationFrameId;
+        let player;
+        let meteors = [];
+        let stars = [];
+        let quizActive = false;
+        let keys = {
+            ArrowUp: false,
+            ArrowDown: false,
+            ArrowLeft: false,
+            ArrowRight: false
+        };
+        
+        // Banco de perguntas
+        const questions = [
+            {
+                question: "Qual foi o primeiro álbum de Taylor Swift?",
+                options: ["Fearless", "Taylor Swift", "Speak Now", "Red"],
+                answer: 1
+            },
+            {
+                question: "Qual música fez Taylor Swift ganhar seu primeiro Grammy?",
+                options: ["Love Story", "White Horse", "You Belong With Me", "Our Song"],
+                answer: 1
+
+            },
+
+            {
+
+               question: "Qual primeiro single do álbum Lover?",
+                options: ["Cornelia Street", "Cruel Summer", "Me!", "Lover"],
+                answer: 1
+            },
+
+            {
+
+               question: "Qual o primeiro single de Taylor",
+               options: ["Tim MacGraw", "Our song", "Teardrops on my guitar", "Cold as you"],
+               answer: 1
+
+            },
+
+
+        ];
+        
+        // Configurações
+        const playerConfig = {
+            x: canvas.width / 2,
+            y: canvas.height - 50,
+            width: 40,
+            height: 40,
+            speed: 5,
+            color: '#d8a1f8'
+        };
+        
+        const meteorConfig = {
+            width: 30,
+            height: 30,
+            minSpeed: 2,
+            maxSpeed: 6,
+            spawnRate: 60
+        };
+        
+        // Inicialização do jogo
+        function init() {
+            createPlayer();
+            createStars();
+            updateLivesDisplay();
+            setEventListeners();
+            
+            // Mostrar tela inicial
+            startScreen.style.display = 'flex';
+            gameOverScreen.style.display = 'none';
+            quizScreen.style.display = 'none';
+        }
+        
+        function createPlayer() {
+            player = {
+                x: playerConfig.x,
+                y: playerConfig.y,
+                width: playerConfig.width,
+                height: playerConfig.height,
+                speed: playerConfig.speed,
+                color: playerConfig.color,
+                dx: 0,
+                dy: 0,
+                
+                draw() {
+                    ctx.save();
+                    ctx.fillStyle = this.color;
+                    
+                    // Desenhar coração
+                    ctx.beginPath();
+                    ctx.moveTo(this.x, this.y - this.height/3);
+                    ctx.bezierCurveTo(
+                        this.x + this.width/2, this.y - this.height/2,
+                        this.x + this.width/2, this.y,
+                        this.x, this.y + this.height/3
+                    );
+                    ctx.bezierCurveTo(
+                        this.x - this.width/2, this.y,
+                        this.x - this.width/2, this.y - this.height/2,
+                        this.x, this.y - this.height/3
+                    );
+                    ctx.fill();
+                    ctx.restore();
+                },
+                
+                update() {
+                    this.x += this.dx;
+                    this.y += this.dy;
+                    
+                    // Limites da tela
+                    if (this.x < this.width/2) this.x = this.width/2;
+                    if (this.x > canvas.width - this.width/2) this.x = canvas.width - this.width/2;
+                    if (this.y < this.height/2) this.y = this.height/2;
+                    if (this.y > canvas.height - this.height/2) this.y = canvas.height - this.height/2;
+                },
+                
+                reset() {
+                    this.x = playerConfig.x;
+                    this.y = playerConfig.y;
+                    this.dx = 0;
+                    this.dy = 0;
+                }
+            };
+        }
+        
+        function setEventListeners() {
+            startButton.addEventListener('click', startGame);
+            restartButton.addEventListener('click', startGame);
+            
+            // Controles de teclado
+            window.addEventListener('keydown', (e) => {
+                if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+                    keys[e.key] = true;
+                    updatePlayerMovement();
+                }
+            });
+            
+            window.addEventListener('keyup', (e) => {
+                if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+                    keys[e.key] = false;
+                    updatePlayerMovement();
+                }
+            });
+        }
+        
+        function updatePlayerMovement() {
+            player.dx = 0;
+            player.dy = 0;
+            
+            if (keys.ArrowLeft) player.dx = -player.speed;
+            if (keys.ArrowRight) player.dx = player.speed;
+            if (keys.ArrowUp) player.dy = -player.speed;
+            if (keys.ArrowDown) player.dy = player.speed;
+            
+            // Normalizar movimento diagonal
+            if (player.dx !== 0 && player.dy !== 0) {
+                player.dx *= 0.7;
+                player.dy *= 0.7;
+            }
+        }
+        
+        function createStars() {
+            stars = [];
+            for (let i = 0; i < 100; i++) {
+                stars.push({
+                    x: Math.random() * canvas.width,
+                    y: Math.random() * canvas.height,
+                    radius: Math.random() * 1.5,
+                    color: `hsl(${Math.random() * 60 + 270}, 80%, 70%)`
+                });
+            }
+        }
+        
+        function drawStars() {
+            ctx.save();
+            stars.forEach(star => {
+                ctx.beginPath();
+                ctx.arc(star.x, star.y, star.radius, 0, Math.PI * 2);
+                ctx.fillStyle = star.color;
+                ctx.fill();
+            });
+            ctx.restore();
+        }
+        
+        function createMeteor() {
+            const size = meteorConfig.width + Math.random() * 20;
+            const speed = Math.random() * (meteorConfig.maxSpeed - meteorConfig.minSpeed) + meteorConfig.minSpeed;
+            
+            meteors.push({
+                x: Math.random() * (canvas.width - size),
+                y: -size,
+                width: size,
+                height: size,
+                speed: speed,
+                color: `hsl(${Math.random() * 60}, 70%, 50%)`
+            });
+        }
+        
+        function drawMeteor(meteor) {
+            ctx.save();
+            ctx.fillStyle = meteor.color;
+            ctx.fillRect(meteor.x, meteor.y, meteor.width, meteor.height);
+            ctx.restore();
+        }
+        
+        function updateMeteors() {
+            // Adicionar novos meteoros
+            if (Math.random() < 0.02) {
+                createMeteor();
+            }
+            
+            // Atualizar posição dos meteoros
+            for (let i = meteors.length - 1; i >= 0; i--) {
+                const meteor = meteors[i];
+                meteor.y += meteor.speed;
+                
+                // Verificar colisão
+                if (checkCollision(player, meteor)) {
+                    meteors.splice(i, 1);
+                    handleCollision();
+                    continue;
+                }
+                
+                // Remover meteoros que saíram da tela
+                if (meteor.y > canvas.height) {
+                    meteors.splice(i, 1);
+                    score++;
+                    scoreDisplay.textContent = `Eras: ${score}`;
+                }
+            }
+        }
+        
+        function checkCollision(player, meteor) {
+            // Colisão simples retangular
+            return player.x < meteor.x + meteor.width &&
+                   player.x + player.width > meteor.x &&
+                   player.y < meteor.y + meteor.height &&
+                   player.y + player.height > meteor.y;
+        }
+        
+        function handleCollision() {
+            lives--;
+            updateLivesDisplay();
+            
+            if (lives <= 0) {
+                gameOver();
+            } else {
+                showQuiz();
+            }
+        }
+        
+        function updateLivesDisplay() {
+            lifeIcons.innerHTML = '';
+            for (let i = 0; i < lives; i++) {
+                lifeIcons.innerHTML += '<span class="life"></span>';
+            }
+        }
+        
+        function showQuiz() {
+            gameRunning = false;
+            cancelAnimationFrame(animationFrameId);
+            
+            const question = questions[Math.floor(Math.random() * questions.length)];
+            quizQuestion.textContent = question.question;
+            quizOptions.innerHTML = '';
+            
+            question.options.forEach((option, index) => {
+                const optionElement = document.createElement('div');
+                optionElement.className = 'quiz-option';
+                optionElement.textContent = option;
+                optionElement.addEventListener('click', () => handleQuizAnswer(index === question.answer));
+                quizOptions.appendChild(optionElement);
+            });
+            
+            quizScreen.style.display = 'flex';
+        }
+        
+        function handleQuizAnswer(correct) {
+            if (correct) {
+                lives = Math.min(lives + 1, 3);
+                updateLivesDisplay();
+            }
+            
+            quizScreen.style.display = 'none';
+            gameRunning = true;
+            animate();
+        }
+        
+        function startGame() {
+            score = 0;
+            lives = 3;
+            meteors = [];
+            player.reset();
+            updateLivesDisplay();
+            scoreDisplay.textContent = `Eras: 0`;
+            startScreen.style.display = 'none';
+            gameOverScreen.style.display = 'none';
+            gameRunning = true;
+            animate();
+        }
+        
+        function gameOver() {
+            gameRunning = false;
+            cancelAnimationFrame(animationFrameId);
+            finalScore.textContent = `Eras completadas: ${score}`;
+            gameOverScreen.style.display = 'flex';
+        }
+        
+        function animate() {
+            if (!gameRunning) return;
+            
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            drawStars();
+            player.update();
+            player.draw();
+            
+            meteors.forEach(meteor => drawMeteor(meteor));
+            updateMeteors();
+            
+            animationFrameId = requestAnimationFrame(animate);
+        }
+        
+        // Iniciar o jogo quando a página carregar
+        window.addEventListener('load', init);
+    </script>
+</body>
+</html>
